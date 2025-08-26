@@ -9,7 +9,7 @@ export function calculatePrice(width, height, vinylCost) {
   }
 
   // Horizontal Orientation
-  const W_bleed_horizontal = W + BLEED;
+  const W_bleed_horizontal = W < ROLL_WIDTH ? W + BLEED : W;
   const S_raw_horizontal = ROLL_WIDTH / W_bleed_horizontal;
   const S_rounded_horizontal = Math.floor(S_raw_horizontal);
   const H_meters_horizontal = H / 1000;
@@ -18,7 +18,7 @@ export function calculatePrice(width, height, vinylCost) {
   const P_horizontal = S_rounded_horizontal > 0 ? Row_Cost_horizontal / S_rounded_horizontal : Infinity;
 
   // Vertical Orientation
-  const H_bleed_vertical = H + BLEED;
+  const H_bleed_vertical = H < ROLL_WIDTH ? H + BLEED : H;
   const S_raw_vertical = ROLL_WIDTH / H_bleed_vertical;
   const S_rounded_vertical = Math.floor(S_raw_vertical);
   const W_meters_vertical = W / 1000;
@@ -27,8 +27,13 @@ export function calculatePrice(width, height, vinylCost) {
   const P_vertical = S_rounded_vertical > 0 ? Row_Cost_vertical / S_rounded_vertical : Infinity;
 
   const price = Math.min(P_horizontal, P_vertical);
+
+  if (price === Infinity) {
+    return { price: 'Invalid dimensions', stickersPerRow: 0 };
+  }
+
   const adjustedPrice = Math.max(price, MIN_PRICE_PER_STICKER);
-  const stickersPerRow = price < P_vertical ? S_rounded_horizontal : S_rounded_vertical;
+  const stickersPerRow = P_horizontal <= P_vertical ? S_rounded_horizontal : S_rounded_vertical;
 
   return { price: adjustedPrice.toFixed(2), stickersPerRow };
 }

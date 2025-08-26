@@ -89,36 +89,88 @@ document.addEventListener('DOMContentLoaded', async () => {
   function calculateQuote() {
     const stickerQuotes = [];
     let totalCostExclVat = 0;
+    const itemsForAdjustment = [];
 
     appState.stickers.forEach((sticker, index) => {
-      const { price, stickersPerRow } = calculatePrice(sticker.width, sticker.height, appState.vinylCost);
-      if (price === 'Invalid dimensions') {
-        stickerQuotes.push({
-          html: `Sticker ${index + 1}: Invalid dimensions`,
-          text: `Sticker ${index + 1} (${sticker.width}x${sticker.height}mm): Invalid dimensions`
-        });
-      } else {
+        if (!sticker.width || !sticker.height || !sticker.quantity) return;
+
+        const { price, stickersPerRow } = calculatePrice(sticker.width, sticker.height, appState.vinylCost);
+
+        if (price === 'Invalid dimensions' || stickersPerRow === 0) {
+            stickerQuotes.push({
+                html: `Sticker ${index + 1} (${sticker.width}x${sticker.height}mm): Invalid dimensions`,
+                text: `Sticker ${index + 1} (${sticker.width}x${sticker.height}mm): Invalid dimensions`
+            });
+            return;
+        }
+
         const rows = Math.ceil(sticker.quantity / stickersPerRow);
         const totalStickers = rows * stickersPerRow;
-        const totalPriceExclVatPerSticker = (price * totalStickers);
-        const totalPriceInclVat = (totalPriceExclVatPerSticker * (1 + appState.vatRate / 100));
+        const pricePerSticker = parseFloat(price);
+        const totalPriceForItem = pricePerSticker * totalStickers;
+        const totalPriceInclVat = totalPriceForItem * (1 + appState.vatRate / 100);
 
         stickerQuotes.push({
-          html: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)<br>${rows} rows - ${totalStickers} stickers<br>R${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `<br><span style="margin-left: 20px;">Incl VAT: R${totalPriceInclVat.toFixed(2)}</span>` : ''),
-          text: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)\n${rows} rows - ${totalStickers} stickers\nR${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `\nIncl VAT: R${totalPriceInclVat.toFixed(2)}` : '')
+            html: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)<br>${rows} rows - ${totalStickers} stickers<br>R${totalPriceForItem.toFixed(2)} Excl VAT` + (appState.includeVat ? `<br><span style="margin-left: 20px;">Incl VAT: R${totalPriceInclVat.toFixed(2)}</span>` : ''),
+            text: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)\n${rows} rows - ${totalStickers} stickers\nR${totalPriceForItem.toFixed(2)} Excl VAT` + (appState.includeVat ? `\nIncl VAT: R${totalPriceInclVat.toFixed(2)}` : '')
         });
-        totalCostExclVat += totalPriceExclVatPerSticker;
-      }
+        totalCostExclVat += totalPriceForItem;
+
+        itemsForAdjustment.push({
+            index,
+            sticker,
+            pricePerSticker,
+            stickersPerRow,
+            pricePerRow: pricePerSticker * stickersPerRow,
+            currentRows: rows,
+        });
     });
 
+    const isUnderMinOrder = totalCostExclVat > 0 && totalCostExclVat < MIN_ORDER_AMOUNT;
+    let adjustedCostExclVat = totalCostExclVat;
+    let quantityAdjustedQuotes = [];
+
+    if (isUnderMinOrder && itemsForAdjustment.length > 0) {
+        let currentTotal = totalCostExclVat;
+        const adjustedItems = JSON.parse(JSON.stringify(itemsForAdjustment));
+
+        while (currentTotal < MIN_ORDER_AMOUNT) {
+            adjustedItems.sort((a, b) => a.pricePerRow - b.pricePerRow);
+            const itemToAdjust = adjustedItems[0];
+            itemToAdjust.currentRows += 1;
+            currentTotal += itemToAdjust.pricePerRow;
+        }
+        adjustedCostExclVat = currentTotal;
+
+        // Generate new quote lines for the adjusted items
+        itemsForAdjustment.forEach((originalItem, i) => {
+            const adjustedItem = adjustedItems.find(item => item.index === originalItem.index);
+            if (originalItem.currentRows !== adjustedItem.currentRows) {
+                 const { sticker, pricePerSticker, stickersPerRow } = adjustedItem;
+                 const newTotalStickers = adjustedItem.currentRows * stickersPerRow;
+                 const newTotalPrice = newTotalStickers * pricePerSticker;
+                 const newTotalPriceInclVat = newTotalPrice * (1 + appState.vatRate / 100);
+
+                 quantityAdjustedQuotes.push({
+                     html: `(Minimum order Quantity)<br>${sticker.width}x${sticker.height}mm - R${pricePerSticker.toFixed(2)} excl VAT per sticker (${stickersPerRow} stickers per row)<br>${adjustedItem.currentRows} rows - ${newTotalStickers} stickers<br>R${newTotalPrice.toFixed(2)} Excl VAT` + (appState.includeVat ? `<br><span style="margin-left: 20px;">Incl VAT: R${newTotalPriceInclVat.toFixed(2)}</span>` : ''),
+                     text: `(Minimum order Quantity)\n${sticker.width}x${sticker.height}mm - R${pricePerSticker.toFixed(2)} excl VAT per sticker (${stickersPerRow} stickers per row)\n${adjustedItem.currentRows} rows - ${newTotalStickers} stickers\nR${newTotalPrice.toFixed(2)} Excl VAT` + (appState.includeVat ? `\nIncl VAT: R${newTotalPriceInclVat.toFixed(2)}` : '')
+                 });
+            }
+        });
+    }
+
+
     return {
-      material: appState.material,
-      stickerQuotes,
-      totalCostExclVat,
-      totalCostInclVat: totalCostExclVat * (1 + appState.vatRate / 100),
-      includeVat: appState.includeVat,
-      minOrderAmount: MIN_ORDER_AMOUNT,
-      roundedCorners: appState.roundedCorners
+        material: appState.material,
+        stickerQuotes,
+        totalCostExclVat,
+        isUnderMinOrder,
+        adjustedCostExclVat,
+        quantityAdjustedQuotes,
+        totalCostInclVat: adjustedCostExclVat * (1 + appState.vatRate / 100),
+        includeVat: appState.includeVat,
+        minOrderAmount: MIN_ORDER_AMOUNT,
+        roundedCorners: appState.roundedCorners
     };
   }
 
