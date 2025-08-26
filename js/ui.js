@@ -89,7 +89,6 @@ export function renderResults(resultsDiv, quoteData) {
     }
 
     if (quoteData.stickerQuotes.length === 0) {
-        // Don't render anything if there are no valid stickers
         resultsDiv.classList.remove('show');
         return;
     }
@@ -120,17 +119,26 @@ export function renderResults(resultsDiv, quoteData) {
     });
 
     if (quoteData.totalCostExclVat > 0) {
-        const subTotalEl = document.createElement('p');
-        subTotalEl.innerHTML = `Sub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT`;
-        resultsDiv.appendChild(subTotalEl);
-        fullQuote += `\nSub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT\n`;
-
         if (quoteData.isUnderMinOrder) {
+            const subTotalEl = document.createElement('p');
+            subTotalEl.innerHTML = `<i>Sub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT</i>`;
+            resultsDiv.appendChild(subTotalEl);
+            fullQuote += `\n*Sub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT*\n`;
+
             const minOrderNoticeEl = document.createElement('p');
             minOrderNoticeEl.className = 'min-order-notice';
-            minOrderNoticeEl.textContent = `Minimum order is R${quoteData.minOrderAmount.toFixed(2)}. Price adjusted.`;
+            minOrderNoticeEl.textContent = `Minimum order is R${quoteData.minOrderAmount.toFixed(2)}.`;
             resultsDiv.appendChild(minOrderNoticeEl);
-            fullQuote += `Minimum order is R${quoteData.minOrderAmount.toFixed(2)}. Price adjusted.\n`;
+            fullQuote += `\nMinimum order is R${quoteData.minOrderAmount.toFixed(2)}.\n`;
+
+            if (quoteData.quantityAdjustedQuotes && quoteData.quantityAdjustedQuotes.length > 0) {
+                quoteData.quantityAdjustedQuotes.forEach(adjustedQuote => {
+                    const adjustedQuoteEl = document.createElement('p');
+                    adjustedQuoteEl.innerHTML = adjustedQuote.html;
+                    resultsDiv.appendChild(adjustedQuoteEl);
+                    fullQuote += `${adjustedQuote.text}\n`;
+                });
+            }
         }
 
         const finalTotalEl = document.createElement('p');
