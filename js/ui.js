@@ -83,72 +83,83 @@ export function addStickerInput(stickersDiv, sticker = { width: '', height: '', 
 }
 
 export function renderResults(resultsDiv, quoteData) {
-  // Clear previous results safely
-  while (resultsDiv.firstChild) {
-    resultsDiv.removeChild(resultsDiv.firstChild);
-  }
-
-  if (quoteData.material === 'unspecified') {
-    const error = document.createElement('p');
-    error.textContent = 'Quote not generated. Reason: no Material specified.';
-    resultsDiv.appendChild(error);
-    return;
-  }
-
-  const copyButton = document.createElement('button');
-  copyButton.id = 'copy-quote';
-  copyButton.className = 'copy-quote-button';
-  const copyIcon = document.createElement('i');
-  copyIcon.className = 'fas fa-copy';
-  copyButton.appendChild(copyIcon);
-  resultsDiv.appendChild(copyButton);
-
-  let fullQuote = `Dear Customer. Thank you for reaching out to us.\nBelow is your Quote based on your request:\n\nMaterial: ${quoteData.material}\n\n`;
-
-  quoteData.stickerQuotes.forEach(stickerQuote => {
-    const p = document.createElement('p');
-    // Using innerHTML here is a pragmatic choice for now to keep the line breaks.
-    // A more advanced solution would be to create text nodes and br elements.
-    p.innerHTML = stickerQuote.html;
-    resultsDiv.appendChild(p);
-    fullQuote += `${stickerQuote.text}\n`;
-  });
-
-  if (quoteData.totalCostExclVat > 0) {
-    const totalExclVatEl = document.createElement('p');
-    const strongExcl = document.createElement('strong');
-    strongExcl.textContent = `Total: R${quoteData.totalCostExclVat.toFixed(2)} Exclusive of VAT`;
-    totalExclVatEl.appendChild(strongExcl);
-    resultsDiv.appendChild(totalExclVatEl);
-    fullQuote += `\nTotal: R${quoteData.totalCostExclVat.toFixed(2)} Exclusive of VAT\n`;
-
-    if (quoteData.includeVat) {
-      const totalInclVatEl = document.createElement('p');
-      const strongIncl = document.createElement('strong');
-      strongIncl.textContent = `Total Incl VAT: R${quoteData.totalCostInclVat.toFixed(2)} the complete order total`;
-      totalInclVatEl.appendChild(strongIncl);
-      resultsDiv.appendChild(totalInclVatEl);
-      fullQuote += `Total Incl VAT: R${quoteData.totalCostInclVat.toFixed(2)} the complete order total\n`;
+    // Clear previous results safely
+    while (resultsDiv.firstChild) {
+        resultsDiv.removeChild(resultsDiv.firstChild);
     }
 
-    if (quoteData.totalCostExclVat < quoteData.minOrderAmount) {
-      const minOrderEl = document.createElement('p');
-      minOrderEl.style.color = '#E74C3C';
-      minOrderEl.style.textTransform = 'uppercase';
-      minOrderEl.textContent = 'YOUR ORDER IS UNDER R100.00 EXCL VAT. WE HAVE A MINIMUM ORDER AMOUNT OF R100.00 EXCL VAT';
-      resultsDiv.appendChild(minOrderEl);
-      fullQuote += `\nYOUR ORDER IS UNDER R100.00 EXCL VAT. WE HAVE A MINIMUM ORDER AMOUNT OF R100.00 EXCL VAT\n`;
+    if (quoteData.stickerQuotes.length === 0) {
+        // Don't render anything if there are no valid stickers
+        resultsDiv.classList.remove('show');
+        return;
     }
 
-    if (quoteData.roundedCorners) {
-      fullQuote += `\nCutline with rounded Corners\n`;
+    if (quoteData.material === 'unspecified') {
+        const error = document.createElement('p');
+        error.textContent = 'Quote not generated. Reason: no Material specified.';
+        resultsDiv.appendChild(error);
+        resultsDiv.classList.add('show');
+        return;
     }
 
-    fullQuote += `\nPlease let us know if this quote is accepted so we can proceed with printing.\n`;
-    resultsDiv.classList.add('show');
-  }
+    const copyButton = document.createElement('button');
+    copyButton.id = 'copy-quote';
+    copyButton.className = 'copy-quote-button';
+    const copyIcon = document.createElement('i');
+    copyIcon.className = 'fas fa-copy';
+    copyButton.appendChild(copyIcon);
+    resultsDiv.appendChild(copyButton);
 
-  return fullQuote;
+    let fullQuote = `Dear Customer. Thank you for reaching out to us.\nBelow is your Quote based on your request:\n\nMaterial: ${quoteData.material}\n\n`;
+
+    quoteData.stickerQuotes.forEach(stickerQuote => {
+        const p = document.createElement('p');
+        p.innerHTML = stickerQuote.html;
+        resultsDiv.appendChild(p);
+        fullQuote += `${stickerQuote.text}\n`;
+    });
+
+    if (quoteData.totalCostExclVat > 0) {
+        const subTotalEl = document.createElement('p');
+        subTotalEl.innerHTML = `Sub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT`;
+        resultsDiv.appendChild(subTotalEl);
+        fullQuote += `\nSub-Total: R${quoteData.totalCostExclVat.toFixed(2)} Excl VAT\n`;
+
+        if (quoteData.isUnderMinOrder) {
+            const minOrderNoticeEl = document.createElement('p');
+            minOrderNoticeEl.className = 'min-order-notice';
+            minOrderNoticeEl.textContent = `Minimum order is R${quoteData.minOrderAmount.toFixed(2)}. Price adjusted.`;
+            resultsDiv.appendChild(minOrderNoticeEl);
+            fullQuote += `Minimum order is R${quoteData.minOrderAmount.toFixed(2)}. Price adjusted.\n`;
+        }
+
+        const finalTotalEl = document.createElement('p');
+        const strongFinalTotal = document.createElement('strong');
+        strongFinalTotal.textContent = `Total: R${quoteData.adjustedCostExclVat.toFixed(2)} Exclusive of VAT`;
+        finalTotalEl.appendChild(strongFinalTotal);
+        resultsDiv.appendChild(finalTotalEl);
+        fullQuote += `\nTotal: R${quoteData.adjustedCostExclVat.toFixed(2)} Exclusive of VAT\n`;
+
+        if (quoteData.includeVat) {
+            const totalInclVatEl = document.createElement('p');
+            const strongIncl = document.createElement('strong');
+            strongIncl.textContent = `Total Incl VAT: R${quoteData.totalCostInclVat.toFixed(2)}`;
+            totalInclVatEl.appendChild(strongIncl);
+            resultsDiv.appendChild(totalInclVatEl);
+            fullQuote += `Total Incl VAT: R${quoteData.totalCostInclVat.toFixed(2)}\n`;
+        }
+
+        if (quoteData.roundedCorners) {
+            fullQuote += `\nCutline with rounded Corners\n`;
+        }
+
+        fullQuote += `\nPlease let us know if this quote is accepted so we can proceed with printing.\n`;
+        resultsDiv.classList.add('show');
+    } else {
+        resultsDiv.classList.remove('show');
+    }
+
+    return fullQuote;
 }
 
 export function showToast(message) {

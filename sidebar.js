@@ -91,31 +91,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     let totalCostExclVat = 0;
 
     appState.stickers.forEach((sticker, index) => {
+      if (!sticker.width || !sticker.height || !sticker.quantity) return;
+
       const { price, stickersPerRow } = calculatePrice(sticker.width, sticker.height, appState.vinylCost);
-      if (price === 'Invalid dimensions') {
+
+      if (price === 'Invalid dimensions' || stickersPerRow === 0) {
         stickerQuotes.push({
-          html: `Sticker ${index + 1}: Invalid dimensions`,
+          html: `Sticker ${index + 1} (${sticker.width}x${sticker.height}mm): Invalid dimensions`,
           text: `Sticker ${index + 1} (${sticker.width}x${sticker.height}mm): Invalid dimensions`
         });
-      } else {
-        const rows = Math.ceil(sticker.quantity / stickersPerRow);
-        const totalStickers = rows * stickersPerRow;
-        const totalPriceExclVatPerSticker = (price * totalStickers);
-        const totalPriceInclVat = (totalPriceExclVatPerSticker * (1 + appState.vatRate / 100));
-
-        stickerQuotes.push({
-          html: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)<br>${rows} rows - ${totalStickers} stickers<br>R${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `<br><span style="margin-left: 20px;">Incl VAT: R${totalPriceInclVat.toFixed(2)}</span>` : ''),
-          text: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)\n${rows} rows - ${totalStickers} stickers\nR${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `\nIncl VAT: R${totalPriceInclVat.toFixed(2)}` : '')
-        });
-        totalCostExclVat += totalPriceExclVatPerSticker;
+        return;
       }
+
+      const rows = Math.ceil(sticker.quantity / stickersPerRow);
+      const totalStickers = rows * stickersPerRow;
+      const totalPriceExclVatPerSticker = (parseFloat(price) * totalStickers);
+      const totalPriceInclVat = (totalPriceExclVatPerSticker * (1 + appState.vatRate / 100));
+
+      stickerQuotes.push({
+        html: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)<br>${rows} rows - ${totalStickers} stickers<br>R${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `<br><span style="margin-left: 20px;">Incl VAT: R${totalPriceInclVat.toFixed(2)}</span>` : ''),
+        text: `${sticker.width}x${sticker.height}mm - R${price} excl VAT per sticker (${stickersPerRow} stickers per row)\n${rows} rows - ${totalStickers} stickers\nR${totalPriceExclVatPerSticker.toFixed(2)} Excl VAT` + (appState.includeVat ? `\nIncl VAT: R${totalPriceInclVat.toFixed(2)}` : '')
+      });
+      totalCostExclVat += totalPriceExclVatPerSticker;
     });
+
+    const isUnderMinOrder = totalCostExclVat > 0 && totalCostExclVat < MIN_ORDER_AMOUNT;
+    const adjustedCostExclVat = isUnderMinOrder ? MIN_ORDER_AMOUNT : totalCostExclVat;
 
     return {
       material: appState.material,
       stickerQuotes,
-      totalCostExclVat,
-      totalCostInclVat: totalCostExclVat * (1 + appState.vatRate / 100),
+      totalCostExclVat, // The original total
+      isUnderMinOrder,
+      adjustedCostExclVat, // The final total, adjusted if needed
+      totalCostInclVat: adjustedCostExclVat * (1 + appState.vatRate / 100),
       includeVat: appState.includeVat,
       minOrderAmount: MIN_ORDER_AMOUNT,
       roundedCorners: appState.roundedCorners
